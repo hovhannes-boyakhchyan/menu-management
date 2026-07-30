@@ -1,0 +1,370 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MenuItemAvailability {
+  available
+  sold_out
+  sold_out_today
+}
+
+enum PizzaShape {
+  round
+  rectangular
+}
+
+enum IconType {
+  simple
+  three_d @map("3d")
+}
+
+model Icon {
+  id          String   @id @default(uuid()) @map("id")
+  name        String   @map("name")
+  type        IconType @default(simple) @map("type")
+  imageFileId String   @map("image_file_id")
+  imageUrl    String   @map("image_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  locationProductTypes   LocationProductType[] @relation("LocationProductTypeIcon")
+  locationProductTypes3d LocationProductType[] @relation("LocationProductTypeIcon3d")
+  categories             Category[]
+
+  @@unique([name, type])
+  @@map("icons")
+}
+
+model Category {
+  id          String  @id @default(uuid()) @map("id")
+  locationId  String  @map("location_id")
+  name        Json    @map("name")
+  description Json?   @map("description")
+  iconId      String? @map("icon_id")
+  imageFileId String? @map("image_file_id")
+  imageUrl    String? @map("image_url")
+  position    Int     @default(0) @map("position")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  icon  Icon?          @relation(fields: [iconId], references: [id])
+  items CategoryItem[]
+
+  @@index([locationId])
+  @@index([iconId])
+  @@map("categories")
+}
+
+model CategoryItem {
+  id         String  @id @default(uuid()) @map("id")
+  categoryId String  @map("category_id")
+  productId  String? @map("product_id")
+  comboId    String? @map("combo_id")
+  position   Int     @default(0) @map("position")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product  Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  combo    Combo?   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, productId])
+  @@unique([categoryId, comboId])
+  @@index([categoryId, position])
+  @@index([productId])
+  @@index([comboId])
+  @@map("category_items")
+}
+
+model ProductType {
+  id           String @id @default(uuid()) @map("id")
+  typeName     String @unique @map("type_name")
+  defaultSizes Json?  @map("default_sizes")
+  metadata     Json?  @map("metadata")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  locationProductTypes LocationProductType[]
+  templates            CatalogTemplate[]
+
+  @@map("product_type")
+}
+
+model CatalogTemplate {
+  id            String  @id @default(uuid()) @map("id")
+  productTypeId String  @map("product_type_id")
+  name          Json    @map("name")
+  description   Json?   @map("description")
+  imageFileId   String? @map("image_file_id")
+  imageUrl      String? @map("image_url")
+  position      Int     @default(0) @map("position")
+  category      String? @map("category")
+  metadata      Json?   @map("metadata")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  productType ProductType                @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  products    Product[]
+  modifiers   Modifier[]
+  disabledIn  LocationDisabledTemplate[]
+
+  @@unique([productTypeId, name])
+  @@index([productTypeId])
+  @@index([category])
+  @@map("catalog_templates")
+}
+
+model LocationProductType {
+  id            String  @id @default(uuid()) @map("id")
+  locationId    String  @map("location_id")
+  productTypeId String  @map("product_type_id")
+  name          Json    @map("name")
+  description   Json?   @map("description")
+  iconId        String? @map("icon_id")
+  icon3dId      String? @map("icon_3d_id")
+  position      Int     @default(0) @map("position")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  productType ProductType       @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  products    Product[]         @relation("LocationProductTypeToProduct")
+  icon        Icon?             @relation("LocationProductTypeIcon", fields: [iconId], references: [id])
+  icon3d      Icon?             @relation("LocationProductTypeIcon3d", fields: [icon3dId], references: [id])
+  comboSlots  ComboSlot[]
+  sizes       ProductTypeSize[]
+
+  @@unique([locationId, productTypeId])
+  @@index([locationId])
+  @@index([productTypeId])
+  @@index([iconId])
+  @@index([icon3dId])
+  @@map("location_product_types")
+}
+
+model ProductTypeSize {
+  id                    String  @id @default(uuid()) @map("id")
+  locationProductTypeId String  @map("location_product_type_id")
+  name                  Json    @map("name")
+  code                  String? @map("code")
+  position              Int     @default(0) @map("position")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  locationProductType LocationProductType @relation(fields: [locationProductTypeId], references: [id], onDelete: Cascade)
+  products            Product[]
+
+  @@index([locationProductTypeId])
+  @@map("product_type_sizes")
+}
+
+model Product {
+  id                    String               @id @default(uuid()) @map("id")
+  locationId            String               @map("location_id")
+  folderId              String?              @map("folder_id")
+  locationProductTypeId String               @map("location_product_type_id")
+  templateId            String?              @map("template_id")
+  sizeId                String?              @map("size_id")
+  familyId              String?              @map("family_id")
+  kitchenId             String?              @map("kitchen_id")
+  name                  Json                 @map("name")
+  description           Json?                @map("description")
+  imageFileId           String?              @map("image_file_id")
+  imageUrl              String?              @map("image_url")
+  price                 Int                  @default(0) @map("price")
+  deliveryPrice         Int                  @default(0) @map("delivery_price")
+  position              Int                  @default(0) @map("position")
+  availability          MenuItemAvailability @default(available) @map("availability")
+  availableFrom         DateTime?            @map("available_from") @db.Timestamptz(6)
+  shape                 PizzaShape?          @map("shape")
+  tags                  String[]             @default([]) @map("tags")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  locationProductType LocationProductType @relation("LocationProductTypeToProduct", fields: [locationProductTypeId], references: [id], onDelete: Cascade)
+  template            CatalogTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  size                ProductTypeSize?    @relation(fields: [sizeId], references: [id], onDelete: SetNull)
+  folder              Folder?             @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  modifierGroups      ModifierGroup[]
+  comboSlotChoices    ComboSlotChoice[]
+  categoryItems       CategoryItem[]
+
+  @@index([locationId])
+  @@index([locationProductTypeId])
+  @@index([templateId])
+  @@index([sizeId])
+  @@index([familyId])
+  @@index([kitchenId])
+  @@index([folderId])
+  @@map("products")
+}
+
+model Folder {
+  id         String  @id @default(uuid()) @map("id")
+  locationId String  @map("location_id")
+  name       String  @map("name")
+  parentId   String? @map("parent_id")
+  position   Int     @default(0) @map("position")
+  color      String? @map("color")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parent   Folder?   @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children Folder[]  @relation("FolderTree")
+  products Product[]
+  combos   Combo[]
+
+  @@index([locationId])
+  @@index([parentId])
+  @@map("folders")
+}
+
+model ModifierGroup {
+  id                      String  @id @default(uuid()) @map("id")
+  productId               String  @map("product_id")
+  name                    Json    @map("name")
+  position                Int     @default(0) @map("position")
+  minSelect               Int     @default(0) @map("min_select")
+  maxSelect               Int     @default(0) @map("max_select")
+  allowDuplicateModifiers Boolean @default(false) @map("allow_duplicate_modifiers")
+  isSliceable             Boolean @default(false) @map("is_sliceable")
+  fixedPrice              Int     @default(0) @map("fixed_price")
+  fixedPriceLimit         Int     @default(0) @map("fixed_price_limit")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modifiers Modifier[]
+
+  @@index([productId])
+  @@map("modifier_groups")
+}
+
+model Modifier {
+  id              String               @id @default(uuid()) @map("id")
+  templateId      String?              @map("template_id")
+  modifierGroupId String               @map("modifier_group_id")
+  name            Json                 @map("name")
+  price           Int                  @default(0) @map("price")
+  availability    MenuItemAvailability @default(available) @map("availability")
+  availableFrom   DateTime?            @map("available_from") @db.Timestamptz(6)
+  imageFileId     String?              @map("image_file_id")
+  imageUrl        String?              @map("image_url")
+  tags            String[]             @default([]) @map("tags")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  modifierGroup ModifierGroup    @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  template      CatalogTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([modifierGroupId])
+  @@index([templateId])
+  @@map("modifiers")
+}
+
+model Combo {
+  id            String               @id @default(uuid()) @map("id")
+  locationId    String               @map("location_id")
+  folderId      String?              @map("folder_id")
+  name          Json                 @map("name")
+  description   Json?                @map("description")
+  imageFileId   String?              @map("image_file_id")
+  imageUrl      String?              @map("image_url")
+  kitchenId     String?              @map("kitchen_id")
+  deliveryPrice Int                  @default(0) @map("delivery_price")
+  price         Int                  @default(0) @map("price")
+  position      Int                  @default(0) @map("position")
+  availability  MenuItemAvailability @default(available) @map("availability")
+  availableFrom DateTime?            @map("available_from") @db.Timestamptz(6)
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  folder        Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  slots         ComboSlot[]
+  categoryItems CategoryItem[]
+
+  @@index([locationId])
+  @@index([folderId])
+  @@map("combos")
+}
+
+model ComboSlot {
+  id            String @id @default(uuid()) @map("id")
+  comboId       String @map("combo_id")
+  allowedTypeId String @map("allowed_type_id")
+  title         Json?  @map("title")
+  position      Int    @default(0) @map("position")
+  minSelect     Int    @default(1) @map("min_select")
+  maxSelect     Int    @default(1) @map("max_select")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  combo       Combo               @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  allowedType LocationProductType @relation(fields: [allowedTypeId], references: [id], onDelete: Cascade)
+  choices     ComboSlotChoice[]
+
+  @@unique([comboId, position])
+  @@index([comboId])
+  @@index([allowedTypeId])
+  @@map("combo_slots")
+}
+
+model ComboSlotChoice {
+  id         String  @id @default(uuid()) @map("id")
+  slotId     String  @map("slot_id")
+  productId  String  @map("product_id")
+  priceDelta Int     @default(0) @map("price_delta")
+  position   Int     @default(0) @map("position")
+  isDefault  Boolean @default(false) @map("is_default")
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  slot    ComboSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  product Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([slotId, productId])
+  @@index([slotId])
+  @@index([productId])
+  @@map("combo_slot_choices")
+}
+
+model LocationDisabledTemplate {
+  id         String @id @default(uuid()) @map("id")
+  locationId String @map("location_id")
+  templateId String @map("template_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  template CatalogTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, templateId])
+  @@index([templateId])
+  @@map("location_disabled_templates")
+}

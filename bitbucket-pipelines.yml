@@ -1,0 +1,59 @@
+image: node:20
+
+pipelines:
+  branches:
+    dev:
+      - step:
+          name: Build & push image to Docker Hub
+          services:
+            - docker
+          caches:
+            - docker
+          script:
+            - docker build --build-arg NPM_TOKEN="$NPM_TOKEN" -t "$IMAGE_NAME_DEV:$BITBUCKET_COMMIT" -t "$IMAGE_NAME_DEV:latest" .
+            - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            - docker push "$IMAGE_NAME_DEV:$BITBUCKET_COMMIT"
+            - docker push "$IMAGE_NAME_DEV:latest"
+      - step:
+          name: Deploy to CapRover
+          deployment: dev
+          script:
+            - npm install -g caprover
+            - caprover deploy --caproverUrl "$CAPROVER_URL" --appToken "$CAPROVER_APP_TOKEN" --appName "$CAPROVER_APP_NAME" --imageName "$IMAGE_NAME_DEV:$BITBUCKET_COMMIT"
+    stage:
+      - step:
+          name: Build & push image to Docker Hub
+          services:
+            - docker
+          caches:
+            - docker
+          script:
+            - docker build --build-arg NPM_TOKEN="$NPM_TOKEN" -t "$IMAGE_NAME_STAGE:$BITBUCKET_COMMIT" -t "$IMAGE_NAME_STAGE:latest" .
+            - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            - docker push "$IMAGE_NAME_STAGE:$BITBUCKET_COMMIT"
+            - docker push "$IMAGE_NAME_STAGE:latest"
+      - step:
+          name: Deploy to CapRover
+          deployment: stage
+          script:
+            - npm install -g caprover
+            - caprover deploy --caproverUrl "$CAPROVER_URL" --appToken "$CAPROVER_APP_TOKEN" --appName "$CAPROVER_APP_NAME" --imageName "$IMAGE_NAME_STAGE:$BITBUCKET_COMMIT"
+  custom:
+    prod:
+      - step:
+          name: Build & push image to Docker Hub
+          services:
+            - docker
+          caches:
+            - docker
+          script:
+            - docker build --build-arg NPM_TOKEN="$NPM_TOKEN" -t "$IMAGE_NAME_PROD:$BITBUCKET_COMMIT" -t "$IMAGE_NAME_PROD:latest" .
+            - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            - docker push "$IMAGE_NAME_PROD:$BITBUCKET_COMMIT"
+            - docker push "$IMAGE_NAME_PROD:latest"
+      - step:
+          name: Deploy to CapRover
+          deployment: production
+          script:
+            - npm install -g caprover
+            - caprover deploy --caproverUrl "$CAPROVER_URL" --appToken "$CAPROVER_APP_TOKEN" --appName "$CAPROVER_APP_NAME" --imageName "$IMAGE_NAME_PROD:$BITBUCKET_COMMIT"
